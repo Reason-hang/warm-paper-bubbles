@@ -1,0 +1,8 @@
+{
+  "name": "warm-paper-bubbles",
+  "version": "0.1.0",
+  "description": "暖纸米白的用户消息气泡，加一个可跳转到任意一条自己提问的面板",
+  "license": "MIT",
+  "author": { "name": "Reason-hang" },
+  "types": "./types/index.d.ts"
+}

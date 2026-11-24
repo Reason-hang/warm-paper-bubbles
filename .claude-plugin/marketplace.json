@@ -1,0 +1,13 @@
+{
+  "name": "warm-paper",
+  "owner": {
+    "name": "Reason-hang"
+  },
+  "plugins": [
+    {
+      "name": "warm-paper-bubbles",
+      "source": "./warm-paper-bubbles"
+    }
+  ],
+  "description": "暖纸米白的用户消息气泡，加一条输入框上方的提问导航"
+}
