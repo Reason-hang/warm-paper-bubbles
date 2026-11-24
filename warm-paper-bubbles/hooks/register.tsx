@@ -3,18 +3,18 @@ import type { EngineInterface, Register, ThemeSetArgs } from 'claude-code'
 
 import type { Question } from '../types'
 
-// 暖纸米白：浅米底 + 深棕字，对比约 10:1，远高于 3:1 下限。
-// 只给气泡本身，colors 一个字段都不传，聊天区其余配色保持原样。
+/**
+ * 气泡：贴着你已发消息的观感——米白底、深棕字、小圆角、内边距收紧。
+ * 只给 UserMessage 上色，colors 一个字段都不传，聊天区其余配色原样。
+ */
 const LOOK: ThemeSetArgs = {
   style: {
     UserMessage: {
       backgroundColor: '#f7f2e7',
       color: '#3a3229',
-      radius: 12,
-      paddingX: 14,
-      paddingY: 10,
-      borderColor: '#e6dcc8',
-      borderWidth: 1,
+      radius: 8,
+      paddingX: 12,
+      paddingY: 6,
     },
   },
 }
@@ -27,7 +27,7 @@ const isExpanded = atom({ plugin: 'warm-paper-bubbles', key: 'isExpanded' } as c
   shape: 'expanded-1',
 })
 
-const short = (text: string, max = 56) => {
+const short = (text: string, max = 44) => {
   const one = text.replace(/\s+/g, ' ').trim()
 
   return one.length > max ? `${one.slice(0, max)}…` : one
@@ -58,9 +58,7 @@ export const register: Register = on => {
     try {
       const set = await $.theme.set(LOOK)
 
-      if (!set.isDrawn) {
-        $.ui.log(`气泡样式未生效：${set.reason}`, { to: 'debug' })
-      }
+      if (!set.isDrawn) $.ui.log(`气泡样式未生效：${set.reason}`, { to: 'debug' })
     } catch (error) {
       $.ui.log(`气泡样式被拒：${String(error)}`, { to: 'debug' })
     }
@@ -75,7 +73,6 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // 一轮结束后刷新，导航条跟着更新
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) await refresh($)
 
@@ -91,10 +88,10 @@ export const register: Register = on => {
     const open = await read($, isExpanded)
     await update($, isExpanded, () => !open)
 
-    return { text: open ? '已收起提问列表。' : `已展开 ${list.length} 条提问，点一条跳过去。` }
+    return { text: open ? '已收起提问列表。' : `已展开 ${list.length} 条提问。` }
   })
 
-  // 滚到某条提问时，把游标跟过去，上一问/下一问从当前位置继续
+  // 滚到某条提问时把游标跟过去
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     const onScreen = e.props.onScreen
 
@@ -116,51 +113,62 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const index = Math.min(await read($, cursor), list.length - 1)
     const open = await read($, isExpanded)
-    const jump = async (to: number) => {
-      const target = list[Math.min(Math.max(0, to), list.length - 1)]
+    const current = list[index]
+
+    /**
+     * 桌面端 transcript 不接受程序化滚动（引擎回 transcript not scrollable
+     * here），所以点一条是把它复制到剪贴板，不假装能跳。
+     */
+    const copy = async (to: number) => {
+      const i = Math.min(Math.max(0, to), list.length - 1)
+      const target = list[i]
 
       if (target === undefined) return
 
-      await update($, cursor, () => Math.min(Math.max(0, to), list.length - 1))
-      const moved = await $.ui.scroll({ to: { requestId: target.uuid }, block: 'start' })
+      await update($, cursor, () => i)
+      const done = await $.ui.copy({ text: target.text, surface: e.surface })
 
-      if (moved.deny !== undefined) $.ui.toast(`没跳过去：${moved.deny}`)
+      $.ui.toast(done.isCopied ? '已复制这条提问，可直接粘贴到搜索' : '复制失败')
     }
 
-    // 展开时最多列 8 条，超出只显示游标附近
-    const room = open ? Math.max(1, Math.min(8, e.props.maxRows - 2)) : 0
+    const room = open ? Math.max(1, Math.min(6, e.props.maxRows - 1)) : 0
     const from = Math.max(0, Math.min(index - Math.floor(room / 2), list.length - room))
     const shown = list.slice(from, from + room)
 
     return (
       <Box flexDirection="column">
-        <Box>
-          <Text dimColor>提问 {index + 1}/{list.length} </Text>
-          <Button key="prev" dimColor onPress={() => jump(index - 1)}>
-            ‹ 上一问
+        <Box alignItems="center">
+          <Text dimColor>
+            {index + 1}/{list.length}
+          </Text>
+          <Text dimColor> </Text>
+          <Button key="prev" plain hotkey="k" onPress={() => copy(index - 1)}>
+            ‹
           </Button>
-          <Text> </Text>
-          <Button key="next" dimColor onPress={() => jump(index + 1)}>
-            下一问 ›
+          <Text dimColor> </Text>
+          <Button key="next" plain hotkey="j" onPress={() => copy(index + 1)}>
+            ›
           </Button>
-          <Text> </Text>
+          <Text dimColor> </Text>
           <Button
             key="toggle"
-            dimColor
+            plain
             onPress={async () => {
               await update($, isExpanded, v => !v)
             }}
           >
-            {open ? '收起' : '全部'}
+            {open ? '⌃' : '⌄'}
           </Button>
+          <Text dimColor> </Text>
+          <Text dimColor>{current === undefined ? '' : current.text}</Text>
         </Box>
         {open &&
           shown.map((q, i) => (
-            <Box key={`row-${q.uuid}`}>
-              <Text dimColor={from + i !== index}>{from + i === index ? '▸ ' : '  '}</Text>
-              <Button key={q.uuid} dimColor={from + i !== index} onPress={() => jump(from + i)}>
-                {q.text}
+            <Box key={`row-${q.uuid}`} alignItems="center">
+              <Button key={q.uuid} plain dimColor={from + i !== index} onPress={() => copy(from + i)}>
+                {from + i === index ? '▸' : ' '}
               </Button>
+              <Text dimColor={from + i !== index}>{q.text}</Text>
             </Box>
           ))}
       </Box>
