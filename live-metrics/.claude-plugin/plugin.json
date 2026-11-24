@@ -1,0 +1,8 @@
+{
+  "name": "live-metrics",
+  "version": "0.1.0",
+  "description": "输入框上方一行实时会话指标：生成速度、首字延迟、上下文水位、输出量",
+  "license": "MIT",
+  "author": { "name": "Reason-hang" },
+  "types": "./types/index.d.ts"
+}

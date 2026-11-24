@@ -7,7 +7,11 @@
     {
       "name": "warm-paper-bubbles",
       "source": "./warm-paper-bubbles"
+    },
+    {
+      "name": "live-metrics",
+      "source": "./live-metrics"
     }
   ],
-  "description": "暖纸米白的用户消息气泡，加一条输入框上方的提问导航"
+  "description": "暖纸米白气泡、提问导航，以及输入框上方的实时会话指标"
 }
